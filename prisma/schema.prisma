@@ -1,0 +1,155 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Akun {
+  akun_id       Int      @id @default(autoincrement())
+  akun_level_id Int
+  akun_username String  @unique
+  akun_password String
+  akun_email    String @unique
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  mahasiswa Mahasiswa[]
+  pejabat   Pejabat[]
+  level     Akun_level  @relation(fields: [akun_level_id], references: [akun_level_id])
+}
+
+model Akun_level {
+  akun_level_id   Int      @id @default(autoincrement())
+  akun_level_nama String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  akun Akun[]
+}
+
+model Mahasiswa {
+  mahasiswa_id    Int      @id @default(autoincrement())
+  akun_id         Int
+  peleton_id Int
+  prodi_id Int
+  mahasiswa_tanggallahir  DateTime
+  mahasiswa_nama  String
+  mahasiswa_nim   String @unique
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  akun Akun @relation(fields: [akun_id], references: [akun_id])
+  peleton Peleton @relation(fields: [peleton_id], references: [peleton_id])
+  prodi Prodi @relation(fields: [prodi_id], references: [prodi_id])
+  penilaian Penilaian[]
+  hasil_penilaian Hasil_Penilaian[]
+}
+
+model Pejabat {
+  pejabat_id      Int      @id @default(autoincrement())
+  akun_id         Int
+  peleton_id Int
+  prodi_id Int
+  pejabat_nama    String
+  pejabat_nip     String  @unique
+  pejabat_jabatan String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  akun Akun @relation(fields: [akun_id], references: [akun_id])
+  peleton Peleton @relation(fields: [peleton_id], references: [peleton_id])
+  prodi Prodi @relation(fields: [prodi_id], references: [prodi_id])
+  penilaian Penilaian[]
+}
+
+model Indikator {
+  indikator_id   Int      @id @default(autoincrement())
+  kelompok_indikator_id Int
+  indikator_nama String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  kelompok_indikator Kelompok_Indikator @relation(fields: [kelompok_indikator_id], references: [kelompok_indikator_id])
+  penilaian Penilaian[]
+}
+
+model Kelompok_Indikator {
+  kelompok_indikator_id   Int      @id @default(autoincrement())
+  kelompok_indikator_nama String
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  indikator Indikator[]
+}
+
+
+model Peleton{
+  peleton_id   Int      @id @default(autoincrement())
+  kompi_id Int
+  peleton_kode String
+  peleton_nama String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  peleton_to_mahasiswa Mahasiswa[]
+  peleton_to_pejabat Pejabat[]
+  pleton_to_kompi Kompi @relation(fields: [kompi_id], references: [kompi_id])
+}
+
+model Kompi{
+  kompi_id   Int      @id @default(autoincrement())
+  kompi_kode String @unique
+  batalyon_id Int
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  kompi_to_peleton Peleton[]
+  kompi_to_batalyon Batalyon @relation(fields: [batalyon_id], references: [batalyon_id])
+}
+
+model Batalyon{
+  batalyon_id   Int      @id @default(autoincrement())
+  batalyon_kode String @unique
+  batalyon_nama String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  batalyon_to_kompi Kompi[]
+
+}
+model Prodi {
+  prodi_id   Int      @id @default(autoincrement())
+  prodi_nama String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  prodi_to_pejabat Pejabat[]
+  prodi_to_mahasiswa Mahasiswa[]
+}
+
+model Penilaian {
+  penilaian_id        Int      @id @default(autoincrement())
+  indikator_id Int
+  mahasiswa_id Int
+  pejabat_id   Int
+  penilaian_nilai     Int
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  mahasiswa Mahasiswa @relation(fields: [mahasiswa_id], references: [mahasiswa_id])
+  pejabat Pejabat @relation(fields: [pejabat_id], references: [pejabat_id])
+  indikator Indikator @relation(fields: [indikator_id], references: [indikator_id])
+}
+
+model Hasil_Penilaian {
+  hasil_penilaian_id Int      @id @default(autoincrement())
+  mahasiswa_id Int
+  penilaian_nilai     Int
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  mahasiswa Mahasiswa @relation(fields: [mahasiswa_id], references: [mahasiswa_id])
+}
