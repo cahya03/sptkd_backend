@@ -1,6 +1,7 @@
 //Impor modul
 const dotenv = require("dotenv").config();
 const bcrypt = require("bcrypt");
+const argon2 = require("argon2");
 const jwt = require("jsonwebtoken");
 const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
@@ -16,6 +17,17 @@ exports.listAkun = async (req, res) => {
     const akun = await prisma.akun.findMany({
       skip: startIndex,
       take: limit,
+      select: {
+        akun_id: true,
+        akun_username: true,
+        akun_email: true,
+        akun_level_id: true,
+        level: {
+          select: {
+            akun_level_nama: true,
+          },
+        },
+      },
     });
 
     const totalCount = await prisma.akun.count();
@@ -31,10 +43,16 @@ exports.listAkun = async (req, res) => {
 
 exports.createAkun = async (req, res) => {
   try {
-    const { akun_username, akun_email, akun_password, akun_level_id } =
-      req.body;
+    const {
+      akun_username,
+      akun_email,
+      akun_password,
+      akun_confPassword,
+      akun_level_id,
+    } = req.body;
 
     //Check if user already exists
+    console.log(req.body);
     const userExists = await prisma.akun.findUnique({
       where: {
         akun_email: akun_email,
@@ -44,8 +62,13 @@ exports.createAkun = async (req, res) => {
       return res.status(400).json({ message: "User already exists" });
     }
 
+    //Check if password and confirm password match
+    if (akun_password !== akun_confPassword) {
+      return res.status(400).json({ message: "Passwords do not match" });
+    }
+
     //Hash password
-    const hashedPassword = await bcrypt.hash(akun_password, 10);
+    const hashedPassword = await argon2.hash(akun_password, 10);
 
     //Create user
     const createdAkun = await prisma.akun.create({
@@ -56,8 +79,12 @@ exports.createAkun = async (req, res) => {
         akun_level_id: parseInt(akun_level_id),
       },
     });
-    res.status(201).json(createdAkun);
-    
+    res
+      .status(201)
+      .json({
+        message: "Akun Registered Succesfully",
+        akun_id: createdAkun.akun_id,
+      });
   } catch (error) {
     console.log(error);
     res.status(500).json({ message: "Error creating user" });
@@ -82,32 +109,48 @@ exports.showAkun = async (req, res) => {
 };
 
 exports.updateAkun = async (req, res) => {
+  const akun = await prisma.akun.findUnique({
+    where: {
+      akun_id: parseInt(req.params.id),
+    },
+  });
+  if (!akun) {
+    return res.status(404).json({ message: "User not found" });
+  }
+  const {
+    akun_username,
+    akun_email,
+    akun_password,
+    akun_confPassword,
+    akun_level_id,
+  } = req.body;
+  let hashedPassword;
+  if (akun_password === "" || akun_password === null) {
+    hashedPassword = akun.akun_password;
+  } else {
+    hashedPassword = await argon2.hash(akun_password);
+  }
+  if (akun_password !== akun_confPassword) {
+    return res.status(400).json({ message: "Passwords do not match" });
+  }
+
+  const updatedData = {
+    akun_username: akun_username,
+    akun_email: akun_email,
+    akun_password: hashedPassword,
+    akun_level_id: parseInt(akun_level_id),
+  };
+
   try {
-    const akun = await prisma.akun.findUnique({
-      where: {
-        akun_id: parseInt(req.params.id),
-      },
-    });
-    if (!akun) {
-      return res.status(404).json({ message: "User not found" });
-    }
-    const { akun_password, ...rest } = req.body;
-    const updatedData = {
-      ...rest,
-      akun_password: akun_password
-        ? await bcrypt.hash(akun_password, 10)
-        : akun.akun_password,
-    };
     const updatedAkun = await prisma.akun.update({
       where: {
         akun_id: parseInt(req.params.id),
       },
       data: updatedData,
     });
-    res.status(200).json(updatedAkun);
+    res.status(200).json({ message: "Akun Updated Successfully" });
   } catch (error) {
-    console.log(error);
-    res.status(500).json({ message: "Error updating user" });
+    return res.status(500).json({ message: error.message });
   }
 };
 
@@ -130,40 +173,5 @@ exports.deleteAkun = async (req, res) => {
   } catch (error) {
     console.log(error);
     res.status(500).json({ message: "Error deleting user" });
-  }
-};
-
-exports.loginAkun = async (req, res) => {
-  const { akun_username, akun_password } = req.body;
-
-  try {
-    const akun = await prisma.akun.findUnique({
-      where: {
-        akun_username: akun_username,
-      },
-    });
-    if (!akun) {
-      return res.status(400).json({ message: "Invalid credentials" });
-    }
-    const validPassword = await bcrypt.compare(
-      akun_password,
-      akun.akun_password
-    );
-    if (!validPassword) {
-      return res.status(400).json({ message: "Invalid credentials" });
-    }
-    const payload = {id: akun.akun_id}
-    const secret = process.env.TOKEN_SECRET;
-    const expiresIn = 60*60*1; 
-    const token = jwt.sign(payload, secret, {
-      expiresIn: expiresIn,
-    });
-    return res.header("auth-token", token).json({
-      message: "Logged in successfully",
-      token: token,
-    });
-  } catch (error) {
-    console.log(error);
-    res.status(500).json({ message: "Error logging in" });
   }
 };
