@@ -64,6 +64,7 @@ model Pejabat {
 model Indikator {
   indikator_id          Int                @id @default(autoincrement())
   indikator_nama        String
+  indikator_bobot Float @default(1)
   createdAt             DateTime           @default(now())
   updatedAt             DateTime           @updatedAt
   kelompok_indikator_id Int

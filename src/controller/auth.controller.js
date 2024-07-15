@@ -10,6 +10,8 @@ exports.loginAkun = async (req, res) => {
       },
       include: {
         level: true,
+        pejabat: true,
+        mahasiswa: true,
       },
     });
     if (!akun) {
@@ -28,6 +30,13 @@ exports.loginAkun = async (req, res) => {
     const akun_level_id = akun.akun_level_id;
     const akun_email = akun.akun_email;
     const akun_role = akun.level.akun_level_nama;
+    if (akun_role === "Mahasiswa") {
+      req.session.mahasiswa_id = akun.mahasiswa.mahasiswa_id;
+      req.session.pejabat_id = null;
+    } else if (akun_role === "Pejabat") {
+      req.session.pejabat_id = akun.pejabat.pejabat_id;
+      req.session.mahasiswa_id = null;
+    }
     res
       .status(200)
       .json({ akun_id, akun_username, akun_email, akun_level_id, akun_role });
@@ -61,7 +70,12 @@ exports.Me = async (req, res) => {
     return res.status(404).json({ message: "Akun not found" });
   }
   const akun_role = akun.level.akun_level_nama;
-  res.status(200).json({...akun, akun_role});
+  res.status(200).json({
+    ...akun,
+    akun_role,
+    pejabat_id: req.session.pejabat_id || null,
+    mahasiswa_id: req.session.mahasiswa_id || null,
+  });
 };
 
 exports.logoutAkun = async (req, res) => {

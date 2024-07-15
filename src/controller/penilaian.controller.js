@@ -8,9 +8,8 @@ exports.listPenilaian = async (req, res) => {
     const startIndex = parseInt(req.query?.start) || 0;
     const endIndex = parseInt(req.query?.end) || 99999;
     const limit = endIndex - startIndex;
-    
     let response;
-    if(req.akun_role === "Admin"){
+    if (req.akun_role === "Admin") {
       response = await prisma.penilaian.findMany({
         skip: startIndex,
         take: limit,
@@ -18,10 +17,10 @@ exports.listPenilaian = async (req, res) => {
           mahasiswa: true,
           pejabat: true,
           indikator: true,
+          header_penilaian: true,
         },
       });
-    } 
-    if(req.akun_role === "Pejabat"){
+    } else if (req.akun_role === "Pejabat") {
       response = await prisma.penilaian.findMany({
         skip: startIndex,
         take: limit,
@@ -32,21 +31,21 @@ exports.listPenilaian = async (req, res) => {
           mahasiswa: true,
           pejabat: true,
           indikator: true,
+          header_penilaian: true,
         },
       });
-    }
-    
-    else {
+    } else if (req.akun_role === "Mahasiswa") {
       response = await prisma.penilaian.findMany({
         skip: startIndex,
         take: limit,
         where: {
-          mahasiswa_id: req.akun_id,
+          mahasiswa_id: req.mahasiswa_id,
         },
         include: {
           mahasiswa: true,
           pejabat: true,
           indikator: true,
+          header_penilaian: true,
         },
       });
     }
@@ -110,36 +109,17 @@ async function createPenilaian(header_penilaian_id, peleton_id) {
   }
 }
 
-exports.insertPenilaianfromHeaderPage = async (data, res) => {
+exports.insertPenilaianfromHeaderPage = async (data) => {
   const { header_penilaian_id, peleton_id } = data;
-
-  //validasi request body
-  if (!header_penilaian_id || !peleton_id) {
-    return res
-      .status(400)
-      .json({ message: "header_penilaian_id and peleton_id are required" });
-  }
-
-  try {
-    const result = await createPenilaian(header_penilaian_id, peleton_id);
-    res
-      .status(201)
-      .json({ message: "Penilaian Created Successfully", data: result });
-  } catch (error) {
-    console.log(error);
-    res
-      .status(500)
-      .json({ message: "Error creating penilaian", error: error.message });
-  }
+  await createPenilaian(header_penilaian_id, peleton_id);
 };
 
 exports.listPenilaianbyHeaderId = async (req, res) => {
-  const { header_penilaian_id } = req.params;
   try {
     console.log(header_penilaian_id);
     const penilaian = await prisma.penilaian.findMany({
       where: {
-        header_penilaian_id: parseInt(header_penilaian_id),
+        header_penilaian_id: parseInt(req.params.id),
       },
       include: {
         mahasiswa: true,
@@ -155,19 +135,70 @@ exports.listPenilaianbyHeaderId = async (req, res) => {
 };
 
 exports.updatePenilaian = async (req, res) => {
-  const penilaianData = req.body;
-  try{
-    const updatedPenilaian = await Promise.all(
-      penilaianData.map(async (penilaian)=>{
-        return await prisma.penilaian.update({
-          where: {penilaian_id:penilaian.penilaian_id},
-          data:{penilaian_nilai:penilaian.penilaian_nilai },
-        });
-      })
-    );
-    res.status(200).json(updatedPenilaian);
-  } catch(error){
+  try {
+    const { penilaian_nilai } = req.body;
+    console.log(penilaian_nilai)
+    const penilaian = await prisma.penilaian.update({
+      where: { penilaian_id: parseInt(req.params.id) },
+      data: { penilaian_nilai: penilaian_nilai },
+    });
+    res.status(200).json({ message: "Penilaian updated" });
+  } catch (error) {
     console.log(error);
-    res.status(500).json({message: "Error updating penilaian"})
+    res.status(500).json({ message: "Error updating penilaian" });
+  }
+};
+
+exports.getPenilaianbyPejabat = async (req, res) => {
+  try {
+    const penilaian = await prisma.penilaian.findMany({
+      where: {
+        pejabat_id: parseInt(req.params.pejabat_id),
+      },
+      include: {
+        mahasiswa: true,
+        pejabat: true,
+        indikator: true,
+      },
+    });
+
+    if (!penilaian || penilaian.length === 0) {
+      return res
+        .status(404)
+        .json({ message: "No penilaian found for this pejabat_id" });
+    }
+
+    res.status(200).json(penilaian);
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: "Error getting penilaian by pejabat" });
+  }
+};
+
+exports.getPenilaianbyId = async (req, res) => {
+  try {
+    const penilaian = await prisma.penilaian.findUnique({
+      where: { penilaian_id: parseInt(req.params.id) },
+      include: {
+        mahasiswa: true,
+        pejabat: true,
+        indikator: true,
+        header_penilaian: true,
+      },
+    });
+    if (!penilaian) {
+      return res.status(404).json({ message: "Penilaian not found" });
+    }
+    const response = {
+      ...penilaian,
+      header_penilaian_nama: penilaian.header_penilaian.header_penilaian_nama,
+      mahasiswa_nama: penilaian.mahasiswa.mahasiswa_nama,
+      pejabat_nama: penilaian.pejabat.pejabat_nama,
+      indikator_nama: penilaian.indikator.indikator_nama,
+    };
+
+    res.status(200).json(response);
+  } catch (error) {
+    res.status(500).json({ message: "Error fetching Penilaian" });
   }
 };

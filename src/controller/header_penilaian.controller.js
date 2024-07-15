@@ -63,7 +63,7 @@ exports.createHeaderPenilaian = async (req, res) => {
       peleton_id: peleton_id
     });
     
-    res.status(201).json(createdHeaderPenilaian);
+    res.status(200).json(createdHeaderPenilaian);
 
   } catch (error) {
     console.log(error);
